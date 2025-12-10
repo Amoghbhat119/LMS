@@ -1,105 +1,101 @@
-const Sclass = require('../models/sclassSchema.js');
-const Student = require('../models/studentSchema.js');
-const Subject = require('../models/subjectSchema.js');
-const Teacher = require('../models/teacherSchema.js');
+const Sclass = require("../models/sclassSchema");
+const Student = require("../models/studentSchema");
 
+const fail500 = (res, tag, err) => {
+  console.error(`💥 ${tag}:`, err);
+  return res
+    .status(500)
+    .json({ message: err?.message || "Internal Server Error" });
+};
+
+// POST /SclassCreate
+// body: { sclassName, numericName, school }  // school = Admin _id
 const sclassCreate = async (req, res) => {
-    try {
-        const sclass = new Sclass({
-            sclassName: req.body.sclassName,
-            school: req.body.adminID
-        });
+  try {
+    const { sclassName, numericName = "", school } = req.body;
+    if (!sclassName || !school)
+      return res.status(400).json({ message: "sclassName and school are required" });
 
-        const existingSclassByName = await Sclass.findOne({
-            sclassName: req.body.sclassName,
-            school: req.body.adminID
-        });
+    // unique per school
+    const exists = await Sclass.findOne({
+      school,
+      sclassName: sclassName.trim(),
+    });
+    if (exists) return res.status(409).json({ message: "Class name already exists" });
 
-        if (existingSclassByName) {
-            res.send({ message: 'Sorry this class name already exists' });
-        }
-        else {
-            const result = await sclass.save();
-            res.send(result);
-        }
-    } catch (err) {
-        res.status(500).json(err);
-    }
+    const doc = await Sclass.create({
+      sclassName: sclassName.trim(),
+      numericName: (numericName || "").trim(),
+      school,
+    });
+    return res.status(201).json(doc);
+  } catch (err) {
+    return fail500(res, "SclassCreate ERROR", err);
+  }
 };
-
 const sclassList = async (req, res) => {
-    try {
-        let sclasses = await Sclass.find({ school: req.params.id })
-        if (sclasses.length > 0) {
-            res.send(sclasses)
-        } else {
-            res.send({ message: "No sclasses found" });
-        }
-    } catch (err) {
-        res.status(500).json(err);
-    }
+  try {
+    console.log('🟢 /SclassList -> schoolId:', req.params.id);
+    const list = await Sclass.find({ school: req.params.id })
+      .select('_id sclassName numericName school')
+      .sort({ createdAt: 1 });
+    return res.status(200).json(list);
+  } catch (err) {
+    console.error('💥 SclassList ERROR:', err);
+    return res.status(500).json({ message: err.message || 'Internal Server Error' });
+  }
 };
 
+
+// GET /Sclass/:id
 const getSclassDetail = async (req, res) => {
-    try {
-        let sclass = await Sclass.findById(req.params.id);
-        if (sclass) {
-            sclass = await sclass.populate("school", "schoolName")
-            res.send(sclass);
-        }
-        else {
-            res.send({ message: "No class found" });
-        }
-    } catch (err) {
-        res.status(500).json(err);
-    }
-}
+  try {
+    const doc = await Sclass.findById(req.params.id)
+      .select("_id sclassName numericName school");
+    if (!doc) return res.status(404).json({ message: "Class not found" });
+    return res.status(200).json(doc);
+  } catch (err) {
+    return fail500(res, "GetSclassDetail ERROR", err);
+  }
+};
 
+// GET /Sclass/Students/:id  (id = class _id)
 const getSclassStudents = async (req, res) => {
-    try {
-        let students = await Student.find({ sclassName: req.params.id })
-        if (students.length > 0) {
-            let modifiedStudents = students.map((student) => {
-                return { ...student._doc, password: undefined };
-            });
-            res.send(modifiedStudents);
-        } else {
-            res.send({ message: "No students found" });
-        }
-    } catch (err) {
-        res.status(500).json(err);
-    }
-}
+  try {
+    const classId = req.params.id;
+    const students = await Student.find({ sclassName: classId })
+      .select("_id name rollNum sclassName");
+    return res.status(200).json(students);
+  } catch (err) {
+    return fail500(res, "GetSclassStudents ERROR", err);
+  }
+};
 
+// (Optional) DELETE endpoints — implement or return a safe message
 const deleteSclass = async (req, res) => {
-    try {
-        const deletedClass = await Sclass.findByIdAndDelete(req.params.id);
-        if (!deletedClass) {
-            return res.send({ message: "Class not found" });
-        }
-        const deletedStudents = await Student.deleteMany({ sclassName: req.params.id });
-        const deletedSubjects = await Subject.deleteMany({ sclassName: req.params.id });
-        const deletedTeachers = await Teacher.deleteMany({ teachSclass: req.params.id });
-        res.send(deletedClass);
-    } catch (error) {
-        res.status(500).json(error);
-    }
-}
+  try {
+    await Sclass.findByIdAndDelete(req.params.id);
+    return res.status(200).json({ message: "Class deleted" });
+  } catch (err) {
+    return fail500(res, "DeleteSclass ERROR", err);
+  }
+};
 
 const deleteSclasses = async (req, res) => {
-    try {
-        const deletedClasses = await Sclass.deleteMany({ school: req.params.id });
-        if (deletedClasses.deletedCount === 0) {
-            return res.send({ message: "No classes found to delete" });
-        }
-        const deletedStudents = await Student.deleteMany({ school: req.params.id });
-        const deletedSubjects = await Subject.deleteMany({ school: req.params.id });
-        const deletedTeachers = await Teacher.deleteMany({ school: req.params.id });
-        res.send(deletedClasses);
-    } catch (error) {
-        res.status(500).json(error);
-    }
-}
+  try {
+    const schoolId = req.params.id;
+    await Sclass.deleteMany({ school: schoolId });
+    return res.status(200).json({ message: "All classes deleted for this school" });
+  } catch (err) {
+    return fail500(res, "DeleteSclasses ERROR", err);
+  }
+};
 
-
-module.exports = { sclassCreate, sclassList, deleteSclass, deleteSclasses, getSclassDetail, getSclassStudents };
+module.exports = {
+  sclassCreate,
+  sclassList,
+  getSclassDetail,
+  getSclassStudents,
+  deleteSclass,
+  deleteSclasses,
+};

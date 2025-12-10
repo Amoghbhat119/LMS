@@ -1,82 +1,53 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Box, Button, Typography } from '@mui/material'
-import { getAllSclasses } from '../../../redux/sclassRelated/sclassHandle';
+import { Box, Button, Typography } from '@mui/material';
+import { getSclassList } from '../../../redux/sclassRelated/sclassHandle';
 import { useNavigate } from 'react-router-dom';
 import { PurpleButton } from '../../../components/buttonStyles';
 import TableTemplate from '../../../components/TableTemplate';
 
 const ChooseClass = ({ situation }) => {
-    const navigate = useNavigate()
-    const dispatch = useDispatch();
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
-    const { sclassesList, loading, error, getresponse } = useSelector((state) => state.sclass);
-    const { currentUser } = useSelector(state => state.user)
+  const { sclassesList = [], loading, error, response } = useSelector((s) => s.sclass);
+  const { currentUser = null } = useSelector((s) => s.user);
+  const adminID = useMemo(() => currentUser?._id || null, [currentUser]);
 
-    useEffect(() => {
-        dispatch(getAllSclasses(currentUser._id, "Sclass"));
-    }, [currentUser._id, dispatch]);
+  useEffect(() => {
+    if (adminID) dispatch(getSclassList(adminID));
+  }, [dispatch, adminID]);
 
-    if (error) {
-        console.log(error)
-    }
+  if (error) console.error(error);
 
-    const navigateHandler = (classID) => {
-        if (situation === "Teacher") {
-            navigate("/Admin/teachers/choosesubject/" + classID)
-        }
-        else if (situation === "Subject") {
-            navigate("/Admin/addsubject/" + classID)
-        }
-    }
+  const go = (classID) => {
+    if (situation === 'Teacher') navigate(`/Admin/teachers/choosesubject/${classID}`);
+    else if (situation === 'Subject') navigate(`/Admin/addsubject/${classID}`);
+  };
 
-    const sclassColumns = [
-        { id: 'name', label: 'Class Name', minWidth: 170 },
-    ]
+  const columns = [{ id: 'name', label: 'Class Name', minWidth: 170 }];
+  const rows = sclassesList.map((c) => ({ id: c._id, name: c.sclassName }));
 
-    const sclassRows = sclassesList && sclassesList.length > 0 && sclassesList.map((sclass) => {
-        return {
-            name: sclass.sclassName,
-            id: sclass._id,
-        };
-    })
+  const ButtonHaver = ({ row }) => (
+    <PurpleButton variant="contained" onClick={() => go(row.id)}>Choose</PurpleButton>
+  );
 
-    const SclassButtonHaver = ({ row }) => {
-        return (
-            <>
-                <PurpleButton variant="contained"
-                    onClick={() => navigateHandler(row.id)}>
-                    Choose
-                </PurpleButton>
-            </>
-        );
-    };
-
-    return (
+  return (
+    <>
+      {loading ? (
+        <div>Loading...</div>
+      ) : response ? (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+          <Button variant="contained" onClick={() => navigate('/Admin/addclass')}>Add Class</Button>
+        </Box>
+      ) : (
         <>
-            {loading ?
-                <div>Loading...</div>
-                :
-                <>
-                    {getresponse ?
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-                            <Button variant="contained" onClick={() => navigate("/Admin/addclass")}>
-                                Add Class
-                            </Button>
-                        </Box>
-                        :
-                        <>
-                            <Typography variant="h6" gutterBottom component="div">
-                                Choose a class
-                            </Typography>
-                            {Array.isArray(sclassesList) && sclassesList.length > 0 &&
-                                <TableTemplate buttonHaver={SclassButtonHaver} columns={sclassColumns} rows={sclassRows} />
-                            }
-                        </>}
-                </>
-            }
+          <Typography variant="h6" gutterBottom>Choose a class</Typography>
+          {rows.length > 0 && <TableTemplate columns={columns} rows={rows} buttonHaver={ButtonHaver} />}
         </>
-    )
-}
+      )}
+    </>
+  );
+};
 
-export default ChooseClass
+export default ChooseClass;

@@ -1,126 +1,72 @@
-import axios from 'axios';
+import api from "../../utils/api";
 import {
-    authRequest,
-    stuffAdded,
-    authSuccess,
-    authFailed,
-    authError,
-    authLogout,
-    doneSuccess,
-    getDeleteSuccess,
-    getRequest,
-    getFailed,
-    getError,
-} from './userSlice';
+  authRequest, stuffAdded, authSuccess, authFailed, authError, authLogout,
+  doneSuccess, getDeleteSuccess, getRequest, getFailed, getError,
+} from "./userSlice";
+
+const toMsg = (err) => err?.response?.data?.message || err?.message || "Request failed";
 
 export const loginUser = (fields, role) => async (dispatch) => {
-    dispatch(authRequest());
-
-    try {
-        const result = await axios.post(`${process.env.REACT_APP_BASE_URL}/${role}Login`, fields, {
-            headers: { 'Content-Type': 'application/json' },
-        });
-        if (result.data.role) {
-            dispatch(authSuccess(result.data));
-        } else {
-            dispatch(authFailed(result.data.message));
-        }
-    } catch (error) {
-        dispatch(authError(error));
-    }
+  dispatch(authRequest());
+  try {
+    const { data } = await api.post(`/${role}Login`, fields);
+    if (data?.role) dispatch(authSuccess(data));
+    else dispatch(authFailed(data?.message || "Login failed"));
+  } catch (err) {
+    dispatch(authError(toMsg(err)));
+  }
 };
 
 export const registerUser = (fields, role) => async (dispatch) => {
-    dispatch(authRequest());
-
-    try {
-        const result = await axios.post(`${process.env.REACT_APP_BASE_URL}/${role}Reg`, fields, {
-            headers: { 'Content-Type': 'application/json' },
-        });
-        if (result.data.schoolName) {
-            dispatch(authSuccess(result.data));
-        }
-        else if (result.data.school) {
-            dispatch(stuffAdded());
-        }
-        else {
-            dispatch(authFailed(result.data.message));
-        }
-    } catch (error) {
-        dispatch(authError(error));
-    }
+  dispatch(authRequest());
+  try {
+    const { data } = await api.post(`/${role}Reg`, fields);
+    if (data?.schoolName) dispatch(authSuccess(data));   // AdminReg success path
+    else if (data?.school) dispatch(stuffAdded());       // some “created” responses
+    else if (data?.message) dispatch(authFailed(data.message));
+    else dispatch(stuffAdded(data));
+  } catch (err) {
+    dispatch(authError(toMsg(err)));
+  }
 };
 
-export const logoutUser = () => (dispatch) => {
-    dispatch(authLogout());
-};
+export const logoutUser = () => (dispatch) => dispatch(authLogout());
 
 export const getUserDetails = (id, address) => async (dispatch) => {
-    dispatch(getRequest());
+  dispatch(getRequest());
+  try {
+    const { data } = await api.get(`/${address}/${id}`);
+    if (data) dispatch(doneSuccess(data));
+    else dispatch(getFailed("Not found"));
+  } catch (err) {
+    dispatch(getError(toMsg(err)));
+  }
+};
 
-    try {
-        const result = await axios.get(`${process.env.REACT_APP_BASE_URL}/${address}/${id}`);
-        if (result.data) {
-            dispatch(doneSuccess(result.data));
-        }
-    } catch (error) {
-        dispatch(getError(error));
-    }
-}
-
-// export const deleteUser = (id, address) => async (dispatch) => {
-//     dispatch(getRequest());
-
-//     try {
-//         const result = await axios.delete(`${process.env.REACT_APP_BASE_URL}/${address}/${id}`);
-//         if (result.data.message) {
-//             dispatch(getFailed(result.data.message));
-//         } else {
-//             dispatch(getDeleteSuccess());
-//         }
-//     } catch (error) {
-//         dispatch(getError(error));
-//     }
-// }
-
-
-export const deleteUser = (id, address) => async (dispatch) => {
-    dispatch(getRequest());
-    dispatch(getFailed("Sorry the delete function has been disabled for now."));
-}
+// Delete disabled intentionally
+export const deleteUser = () => async (dispatch) => {
+  dispatch(getRequest());
+  dispatch(getFailed("Sorry the delete function has been disabled for now."));
+};
 
 export const updateUser = (fields, id, address) => async (dispatch) => {
-    dispatch(getRequest());
-
-    try {
-        const result = await axios.put(`${process.env.REACT_APP_BASE_URL}/${address}/${id}`, fields, {
-            headers: { 'Content-Type': 'application/json' },
-        });
-        if (result.data.schoolName) {
-            dispatch(authSuccess(result.data));
-        }
-        else {
-            dispatch(doneSuccess(result.data));
-        }
-    } catch (error) {
-        dispatch(getError(error));
-    }
-}
+  dispatch(getRequest());
+  try {
+    const { data } = await api.put(`/${address}/${id}`, fields);
+    if (data?.schoolName) dispatch(authSuccess(data));
+    else dispatch(doneSuccess(data));
+  } catch (err) {
+    dispatch(getError(toMsg(err)));
+  }
+};
 
 export const addStuff = (fields, address) => async (dispatch) => {
-    dispatch(authRequest());
-
-    try {
-        const result = await axios.post(`${process.env.REACT_APP_BASE_URL}/${address}Create`, fields, {
-            headers: { 'Content-Type': 'application/json' },
-        });
-
-        if (result.data.message) {
-            dispatch(authFailed(result.data.message));
-        } else {
-            dispatch(stuffAdded(result.data));
-        }
-    } catch (error) {
-        dispatch(authError(error));
-    }
+  dispatch(authRequest());
+  try {
+    const { data } = await api.post(`/${address}Create`, fields);
+    if (data?.message) dispatch(authFailed(data.message));
+    else dispatch(stuffAdded(data));
+  } catch (err) {
+    dispatch(authError(toMsg(err)));
+  }
 };
