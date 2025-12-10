@@ -238,3 +238,4 @@ Rebuild the frontend when deploying to Netlify or Vercel.
 # Notes
 
 The legacy-version branch remains available for anyone who needs the original two-year-old tutorial code. The main branch will continue to evolve as I rebuild the project's architecture using the practices I use today. The community-version branch is available for contributions without affecting the core redesign.
+# LMS
