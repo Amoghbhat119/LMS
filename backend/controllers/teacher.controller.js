@@ -6,8 +6,7 @@ const Material = require("../models/Material.model");
 /* ================= GET ASSIGNED CLASSES ================= */
 exports.getAssignedClasses = async (req, res) => {
   try {
-    const subjects = await Subject.find({ teacher: req.user.id })
-      .populate("class");
+    const subjects = await Subject.find({ teacher: req.user.id }).populate("class");
 
     const uniqueClasses = {};
     subjects.forEach(s => {
@@ -27,10 +26,13 @@ exports.getStudentsByClass = async (req, res) => {
     const cls = await Class.findById(req.params.classId)
       .populate("students", "name email");
 
-    if (!cls) return res.status(404).json({ message: "Class not found" });
+    if (!cls) {
+      return res.status(404).json({ message: "Class not found" });
+    }
 
     res.json(cls.students);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -40,21 +42,23 @@ exports.markAttendance = async (req, res) => {
   try {
     const { classId, records, date } = req.body;
 
-    const attendanceDate = date ? new Date(date) : new Date();
-    if (isNaN(attendanceDate)) {
-      return res.status(400).json({ message: "Invalid date" });
+    if (!classId || !records || typeof records !== "object") {
+      return res.status(400).json({ message: "Invalid attendance data" });
     }
+
+    // 🔥 NORMALIZE DATE (critical fix)
+    const attendanceDate = new Date(date || Date.now());
+    attendanceDate.setHours(0, 0, 0, 0);
 
     const attendance = await Attendance.findOneAndUpdate(
       {
         class: classId,
-        teacher: req.user.id,
-        date: attendanceDate,
+        date: attendanceDate, // 🔥 same day = same document
       },
       {
         class: classId,
         teacher: req.user.id,
-        records,
+        records,              // 🔥 overwrite with latest state
         date: attendanceDate,
       },
       { upsert: true, new: true }
@@ -62,7 +66,7 @@ exports.markAttendance = async (req, res) => {
 
     res.json(attendance);
   } catch (err) {
-    console.error(err);
+    console.error("MARK ATTENDANCE ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -71,18 +75,22 @@ exports.markAttendance = async (req, res) => {
 exports.getAttendanceByDate = async (req, res) => {
   try {
     const { classId, date } = req.query;
-    const queryDate = new Date(date);
 
-    if (isNaN(queryDate)) {
-      return res.status(400).json({ message: "Invalid date" });
+    if (!classId || !date) {
+      return res.status(400).json({ message: "classId and date required" });
     }
 
-    const cls = await Class.findById(classId)
-      .populate("students", "name");
+    const queryDate = new Date(date);
+    queryDate.setHours(0, 0, 0, 0);
+
+    const cls = await Class.findById(classId).populate("students", "name");
+
+    if (!cls) {
+      return res.status(404).json({ message: "Class not found" });
+    }
 
     const attendance = await Attendance.findOne({
       class: classId,
-      teacher: req.user.id,
       date: queryDate,
     });
 
@@ -91,6 +99,7 @@ exports.getAttendanceByDate = async (req, res) => {
       records: attendance ? attendance.records : {},
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -98,14 +107,16 @@ exports.getAttendanceByDate = async (req, res) => {
 /* ================= UPLOAD MATERIAL ================= */
 exports.uploadMaterial = async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: "File missing" });
+    const { classId } = req.body;
+
+    if (!req.file || !classId) {
+      return res.status(400).json({ message: "File and classId required" });
     }
 
     const material = await Material.create({
       file: req.file.filename,
       teacher: req.user.id,
-      class: req.body.classId,
+      class: classId,
     });
 
     res.json(material);
@@ -119,6 +130,10 @@ exports.uploadMaterial = async (req, res) => {
 exports.getMaterialsByClass = async (req, res) => {
   try {
     const { classId } = req.query;
+
+    if (!classId) {
+      return res.status(400).json({ message: "classId required" });
+    }
 
     const materials = await Material.find({
       class: classId,

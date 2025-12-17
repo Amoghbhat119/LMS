@@ -23,8 +23,7 @@ exports.createUser = async (req, res) => {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    // IMPORTANT:
-    // Pass plain password — hashing is handled in User.model.js
+    // Password hashing handled in User.model.js
     await User.create({
       name,
       email,
@@ -58,11 +57,35 @@ exports.assignStudentToClass = async (req, res) => {
   try {
     const { classId, studentId } = req.body;
 
-    await Class.findByIdAndUpdate(classId, {
-      $addToSet: { students: studentId },
-    });
+    if (!classId || !studentId) {
+      return res.status(400).json({
+        message: "classId and studentId are required",
+      });
+    }
 
-    res.json({ message: "Student assigned to class" });
+    // Validate class
+    const cls = await Class.findById(classId);
+    if (!cls) {
+      return res.status(404).json({ message: "Class not found" });
+    }
+
+    // Validate student
+    const student = await User.findById(studentId);
+    if (!student || student.role !== "STUDENT") {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // Add student to class if not already present
+    if (!cls.students.includes(studentId)) {
+      cls.students.push(studentId);
+      await cls.save();
+    }
+
+    // 🔥 CRITICAL FIX: assign class to student automatically
+    student.class = classId;
+    await student.save();
+
+    res.json({ message: "Student assigned to class successfully" });
   } catch (error) {
     console.error("ASSIGN STUDENT ERROR:", error);
     res.status(500).json({ message: "Server error" });

@@ -1,79 +1,109 @@
-import React, { useEffect, useState } from "react";
-import axios from "../../utils/axios";
+import { useEffect, useState } from "react";
+import api from "../../api/axios";
 
 const StudentDashboard = () => {
-  const [subjects, setSubjects] = useState([]);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [attendance, setAttendance] = useState([]);
   const [materials, setMaterials] = useState([]);
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    fetchSubjects();
-  }, []);
+  const viewAttendance = async () => {
+    if (!from || !to) return alert("Select date range");
 
-  const fetchSubjects = async () => {
-    try {
-      const res = await axios.get("/api/student/subjects");
-      setSubjects(res.data);
-    } catch (err) {
-      console.error(err);
-    }
+    const res = await api.get("/student/attendance", {
+      params: { from, to },
+    });
+
+    setAttendance(res.data);
   };
 
-  const fetchMaterials = async (subjectId) => {
-    if (!subjectId) return;
+  const viewMaterials = async () => {
+    const res = await api.get("/student/materials");
+    setMaterials(res.data);
+  };
 
-    setLoading(true);
-    try {
-      const res = await axios.get(
-        `/api/student/materials/${subjectId}`
-      );
-      setMaterials(res.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+  const logout = () => {
+    localStorage.clear();
+    window.location.href = "/";
   };
 
   return (
     <div className="p-6">
-      <h1 className="text-xl font-bold mb-4">Student Dashboard</h1>
+      <h1 className="text-2xl font-bold mb-4">Student Dashboard</h1>
 
-      <h2 className="font-semibold mb-2">Subjects</h2>
-      {subjects.map((sub) => (
-        <div
-          key={sub._id}
-          className="flex justify-between items-center mb-2"
-        >
-          <span>{sub.name}</span>
-          <button
-            onClick={() => fetchMaterials(sub._id)}
-            className="bg-blue-500 text-white px-3 py-1 rounded"
-          >
-            View Materials
+      {/* ATTENDANCE */}
+      <div className="bg-white p-4 rounded shadow mb-6">
+        <h2 className="font-semibold mb-3">View Attendance</h2>
+
+        <div className="flex gap-2 mb-3">
+          <input
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+          />
+          <input
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+          />
+          <button className="btn" onClick={viewAttendance}>
+            View
           </button>
         </div>
-      ))}
 
-      <h2 className="font-semibold mt-6 mb-2">Materials</h2>
-      {loading && <p>Loading...</p>}
+        <table className="w-full border">
+          <thead>
+            <tr>
+              <th className="border p-2">Date</th>
+              <th className="border p-2">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {attendance.map((a, i) => (
+              <tr key={i}>
+                <td className="border p-2">
+                  {new Date(a.date).toLocaleDateString()}
+                </td>
+                <td className="border p-2">
+                  {a.present ? "Present" : "Absent"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-      {!loading && materials.length === 0 && (
-        <p>No materials found.</p>
-      )}
+      {/* MATERIALS */}
+      <div className="bg-white p-4 rounded shadow">
+        <h2 className="font-semibold mb-3">Study Materials</h2>
 
-      {materials.map((m) => (
-        <div key={m._id}>
-          <a
-            href={m.fileUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="text-blue-600 underline"
-          >
-            {m.title}
-          </a>
-        </div>
-      ))}
+        <button className="btn mb-3" onClick={viewMaterials}>
+          Load Materials
+        </button>
+
+        <table className="w-full border">
+          <tbody>
+            {materials.map((m) => (
+              <tr key={m._id}>
+                <td className="border p-2">{m.file}</td>
+                <td className="border p-2">
+                  <a
+                    href={`http://localhost:5000/uploads/${m.file}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    View
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <button onClick={logout} className="text-red-600 mt-6">
+        Logout
+      </button>
     </div>
   );
 };

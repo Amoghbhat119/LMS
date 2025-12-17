@@ -22,9 +22,17 @@ exports.getMyAttendance = async (req, res) => {
         $gte: new Date(from),
         $lte: new Date(to),
       },
-    }).sort({ date: 1 });
+    }).sort({ updatedAt: 1 }); // 🔥 old → new
 
-    const result = records.map((r) => ({
+    // 🔥 keep ONLY latest per date
+    const latestByDate = {};
+
+    records.forEach(r => {
+      const key = r.date.toISOString().split("T")[0];
+      latestByDate[key] = r; // overwrite → latest wins
+    });
+
+    const result = Object.values(latestByDate).map(r => ({
       date: r.date,
       present: r.records?.[req.user.id] === true,
     }));
