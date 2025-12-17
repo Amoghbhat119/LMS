@@ -7,28 +7,13 @@ const upload = require("../middleware/upload");
 
 const teacherController = require("../controllers/teacher.controller");
 
-/* ================= PROTECTED ROUTES ================= */
+router.get("/classes", auth, role(["TEACHER"]), teacherController.getAssignedClasses);
 
-router.get(
-  "/classes",
-  auth,
-  role(["TEACHER"]),
-  teacherController.getAssignedClasses
-);
+router.get("/students/:classId", auth, role(["TEACHER"]), teacherController.getStudentsByClass);
 
-router.get(
-  "/students/:classId",
-  auth,
-  role(["TEACHER"]),
-  teacherController.getStudentsByClass
-);
+router.post("/attendance", auth, role(["TEACHER"]), teacherController.markAttendance);
 
-router.post(
-  "/attendance",
-  auth,
-  role(["TEACHER"]),
-  teacherController.markAttendance
-);
+router.get("/attendance", auth, role(["TEACHER"]), teacherController.getAttendanceByDate);
 
 router.post(
   "/material",
@@ -36,6 +21,13 @@ router.post(
   role(["TEACHER"]),
   upload.single("file"),
   teacherController.uploadMaterial
+);
+
+router.get(
+  "/materials",
+  auth,
+  role(["TEACHER"]),
+  teacherController.getMaterialsByClass
 );
 
 module.exports = router;

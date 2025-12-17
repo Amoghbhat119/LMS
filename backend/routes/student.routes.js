@@ -1,9 +1,22 @@
-const router = require("express").Router();
-const protect = require("../middleware/auth.middleware");
-const role = require("../middleware/role.middleware");
-const student = require("../controllers/student.controller");
+const express = require("express");
+const router = express.Router();
 
-router.get("/attendance", protect, role(["STUDENT"]), student.myAttendance);
-router.get("/materials", protect, role(["STUDENT"]), student.myMaterials);
+const auth = require("../middleware/auth.middleware");
+const role = require("../middleware/role.middleware");
+const studentController = require("../controllers/student.controller");
+
+router.get(
+  "/attendance",
+  auth,
+  role(["STUDENT"]),
+  studentController.getMyAttendance
+);
+
+router.get(
+  "/materials",
+  auth,
+  role(["STUDENT"]),
+  studentController.getMaterials
+);
 
 module.exports = router;

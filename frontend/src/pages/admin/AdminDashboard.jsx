@@ -27,6 +27,9 @@ const AdminDashboard = () => {
     classId: "",
   });
 
+  // 🔑 ONLY ADDITION
+  const [showTeacherPassword, setShowTeacherPassword] = useState(false);
+
   /* ================= LOAD DATA ================= */
 
   const loadAll = async () => {
@@ -78,7 +81,10 @@ const AdminDashboard = () => {
       return alert("Fill all teacher fields");
     }
 
-    await api.post("/admin/teacher", teacherForm);
+    await api.post("/admin/teacher", {
+      ...teacherForm,
+      password: teacherForm.password.trim(), // safety
+    });
 
     setTeacherForm({
       name: "",
@@ -186,7 +192,26 @@ const AdminDashboard = () => {
               <Section title="Create Teacher">
                 <Input label="Name" v={teacherForm.name} f={v => setTeacherForm({ ...teacherForm, name: v })} />
                 <Input label="Email" v={teacherForm.email} f={v => setTeacherForm({ ...teacherForm, email: v })} />
-                <Input label="Password" type="password" v={teacherForm.password} f={v => setTeacherForm({ ...teacherForm, password: v })} />
+
+                {/* 🔑 PASSWORD WITH EYE */}
+                <div className="relative">
+                  <input
+                    type={showTeacherPassword ? "text" : "password"}
+                    placeholder="Password"
+                    value={teacherForm.password}
+                    onChange={(e) =>
+                      setTeacherForm({ ...teacherForm, password: e.target.value })
+                    }
+                    className="input pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowTeacherPassword(!showTeacherPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600"
+                  >
+                    {showTeacherPassword ? "🙈" : "👁️"}
+                  </button>
+                </div>
 
                 <Select
                   label="Class"

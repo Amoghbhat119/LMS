@@ -1,39 +1,46 @@
 const multer = require("multer");
+const fs = require("fs");
 const path = require("path");
 
-/* ================= STORAGE CONFIG ================= */
+/* ================= ABSOLUTE ROOT PATH ================= */
+const ROOT_DIR = process.cwd(); // 🔥 THIS IS THE KEY
+const uploadDir = path.join(ROOT_DIR, "backend", "uploads");
+
+/* ================= ENSURE FOLDER EXISTS ================= */
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+/* ================= STORAGE ================= */
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "uploads/");
+    cb(null, uploadDir); // 🔒 ABSOLUTE, ROOT-BASED
   },
   filename: (req, file, cb) => {
-    const uniqueName =
+    const unique =
       Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, uniqueName + path.extname(file.originalname));
+    cb(null, unique + path.extname(file.originalname));
   },
 });
 
 /* ================= FILE FILTER ================= */
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = [
-    "image/jpeg",
-    "image/png",
-    "application/pdf",
-    "video/mp4",
-  ];
+const allowed = [
+  "image/jpeg",
+  "image/png",
+  "application/pdf",
+  "video/mp4",
+];
 
-  if (allowedTypes.includes(file.mimetype)) {
+const fileFilter = (req, file, cb) => {
+  if (allowed.includes(file.mimetype)) {
     cb(null, true);
   } else {
     cb(new Error("Unsupported file type"), false);
   }
 };
 
-/* ================= MULTER INSTANCE ================= */
-const upload = multer({
+module.exports = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  limits: { fileSize: 50 * 1024 * 1024 },
 });
-
-module.exports = upload;

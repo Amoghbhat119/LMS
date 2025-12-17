@@ -1,6 +1,5 @@
 const express = require("express");
 const router = express.Router();
-const bcrypt = require("bcryptjs");
 
 const Class = require("../models/Class.model");
 const User = require("../models/User.model");
@@ -8,7 +7,7 @@ const Subject = require("../models/Subject.model");
 
 /* ===================== CLASSES ===================== */
 
-/* CREATE CLASS */
+// CREATE CLASS
 router.post("/class", async (req, res) => {
   try {
     const cls = await Class.create({ name: req.body.name });
@@ -18,28 +17,25 @@ router.post("/class", async (req, res) => {
   }
 });
 
-/* ✅ GET ALL CLASSES (FULLY POPULATED — FIXED) */
+// GET ALL CLASSES (POPULATED)
 router.get("/classes", async (req, res) => {
   try {
     const classes = await Class.find()
       .populate({
         path: "subjects",
-        populate: {
-          path: "teacher",
-          select: "name email",
-        },
+        populate: { path: "teacher", select: "name email" },
       })
       .populate("students", "name email");
 
     res.json(classes);
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Failed to fetch classes" });
   }
 });
 
 /* ===================== SUBJECTS ===================== */
 
-/* CREATE SUBJECT */
+// CREATE SUBJECT
 router.post("/subject", async (req, res) => {
   try {
     const { name, classId } = req.body;
@@ -54,12 +50,12 @@ router.post("/subject", async (req, res) => {
     });
 
     res.status(201).json(subject);
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Failed to create subject" });
   }
 });
 
-/* GET ALL SUBJECTS */
+// GET ALL SUBJECTS
 router.get("/subjects", async (req, res) => {
   try {
     const subjects = await Subject.find()
@@ -67,84 +63,98 @@ router.get("/subjects", async (req, res) => {
       .populate("teacher", "name email");
 
     res.json(subjects);
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Failed to fetch subjects" });
   }
 });
 
 /* ===================== TEACHERS ===================== */
 
-/* CREATE TEACHER + ASSIGN SUBJECTS */
+// CREATE TEACHER
 router.post("/teacher", async (req, res) => {
   try {
-    const { name, email, password, classId, subjectIds } = req.body;
+    const { name, email, password, subjectIds } = req.body;
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "All fields required" });
+    }
+
+    const exists = await User.findOne({ email });
+    if (exists) {
+      return res.status(400).json({ message: "User already exists" });
+    }
 
     const teacher = await User.create({
       name,
       email,
-      password: hashedPassword,
+      password: password.trim(),
       role: "TEACHER",
     });
 
-    /* Assign teacher to selected subjects */
-    if (subjectIds && subjectIds.length > 0) {
+    if (subjectIds?.length) {
       await Subject.updateMany(
         { _id: { $in: subjectIds } },
         { teacher: teacher._id }
       );
     }
 
-    res.status(201).json({ message: "Teacher created and assigned" });
+    res.status(201).json({ message: "Teacher created successfully" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to create teacher" });
   }
 });
 
-/* GET ALL TEACHERS */
+// GET ALL TEACHERS
 router.get("/teachers", async (req, res) => {
   try {
     const teachers = await User.find({ role: "TEACHER" }).select("-password");
     res.json(teachers);
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Failed to fetch teachers" });
   }
 });
 
 /* ===================== STUDENTS ===================== */
 
-/* CREATE STUDENT + ASSIGN TO CLASS */
+// CREATE STUDENT  ✅ FIXED
 router.post("/student", async (req, res) => {
   try {
     const { name, email, password, classId } = req.body;
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    if (!name || !email || !password || !classId) {
+      return res.status(400).json({ message: "All fields required" });
+    }
+
+    const exists = await User.findOne({ email });
+    if (exists) {
+      return res.status(400).json({ message: "User already exists" });
+    }
 
     const student = await User.create({
       name,
       email,
-      password: hashedPassword,
+      password: password.trim(),
       role: "STUDENT",
+      class: classId, // ✅ THIS IS THE ONLY REQUIRED FIX
     });
 
     await Class.findByIdAndUpdate(classId, {
       $addToSet: { students: student._id },
     });
 
-    res.status(201).json({ message: "Student created and assigned" });
-  } catch (err) {
+    res.status(201).json({ message: "Student created successfully" });
+  } catch {
     res.status(500).json({ message: "Failed to create student" });
   }
 });
 
-/* GET ALL STUDENTS */
+// GET ALL STUDENTS
 router.get("/students", async (req, res) => {
   try {
     const students = await User.find({ role: "STUDENT" }).select("-password");
     res.json(students);
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: "Failed to fetch students" });
   }
 });

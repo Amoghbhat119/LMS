@@ -11,7 +11,7 @@ const Login = () => {
     try {
       const res = await api.post("/auth/login", {
         email,
-        password,
+        password: String(password), // 🔑 FORCE STRING
       });
 
       localStorage.setItem("token", res.data.token);
@@ -24,12 +24,8 @@ const Login = () => {
       } else {
         window.location.href = "/student";
       }
-
     } catch (err) {
-      console.error(
-        "LOGIN ERROR:",
-        err.response?.data || err.message
-      );
+      console.error("LOGIN ERROR:", err.response?.data || err.message);
       alert(err.response?.data?.message || "Login failed");
     }
   };
@@ -43,13 +39,15 @@ const Login = () => {
         placeholder="Email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
+        required
       />
 
       <input
         type="password"
         placeholder="Password"
         value={password}
-        onChange={(e) => setPassword(e.target.value)}
+        onChange={(e) => setPassword(String(e.target.value))} // 🔑 FORCE STRING
+        required
       />
 
       <button type="submit">Login</button>
